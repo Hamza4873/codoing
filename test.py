@@ -1,58 +1,72 @@
-import json
+import requests
 
-def add_variable_blocks(data, topic, num_blocks):
-    index = -1
-    for i, block in enumerate(data["blocks"]):
-        if "text" in block and "text" in block["text"] and block["text"]["text"] == f"*{topic}*":
-            index = i
-            break
+BASE_URL = "https://api.threatstream.com/api/v2"
+API_KEY = "your_api_key_here"
+HEADERS = {"X-Api-Key": API_KEY, "Content-Type": "application/json"}
 
-    if index == -1:
-        print(f"Error: Could not find topic '{topic}' in the JSON.")
-        return
+def get_search_indicators_v2(indicator_type, value):
+    """Search for indicators based on type and value."""
+    url = f"{BASE_URL}/indicators/"
+    params = {"indicator_type": indicator_type, "value": value}
+    response = requests.get(url, params=params, headers=HEADERS)
+    return response.json()
 
-    variables = ["red", "blue", "green", "yellow", "grey"]
-    for i in range(num_blocks):
-        for j in range(len(variables)):
-            new_block = {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": f"*{variables[j]}*"
-                }
-            }
-            user_input = input(f"What do you want to put for {variables[j]} in block {i + 1}? ")
-            new_block["text"]["text"] = f"*{variables[j]}*: {user_input}"
-            data["blocks"].insert(index + 2 + (i * len(variables)) + j, new_block)
+# Example: Search for indicators of type "ip" with value "1.2.3.4"
+print(get_search_indicators_v2("ip", "1.2.3.4"))
 
-# Example usage
-core = {
-    "blocks": [
-        {"type": "header", "text": {"type": "plain_text", "text": "Your Header Text"}},
-        {"type": "divider"},
-        {"type": "section", "text": {"type": "mrkdwn", "text": "*Topic 1*"}},
-        {"type": "divider"},
-        {"type": "divider"},
-        {"type": "section", "text": {"type": "mrkdwn", "text": "*Topic 2*"}},
-        {"type": "divider"},
-        {"type": "divider"},
-        {"type": "section", "text": {"type": "mrkdwn", "text": "*Topic 3*"}},
-        {"type": "divider"},
-        {"type": "divider"}
-    ]
-}
+def get_indicator_details_v2(indicator_id):
+    """Get details of a specific indicator."""
+    url = f"{BASE_URL}/indicators/{indicator_id}/"
+    response = requests.get(url, headers=HEADERS)
+    return response.json()
 
-topic1_blocks = int(input("How many blocks are in Topic 1? "))
-add_variable_blocks(core, "Topic 1", topic1_blocks)
+# Example: Get details of indicator with ID "123456"
+print(get_indicator_details_v2("123456"))
 
-topic2_blocks = int(input("How many blocks are in Topic 2? "))
-add_variable_blocks(core, "Topic 2", topic2_blocks)
+def get_search_threats_v2(tags):
+    """Search for threats based on tags."""
+    url = f"{BASE_URL}/threats/"
+    params = {"tags": tags}
+    response = requests.get(url, params=params, headers=HEADERS)
+    return response.json()
 
-topic3_blocks = int(input("How many blocks are in Topic 3? "))
-add_variable_blocks(core, "Topic 3", topic3_blocks)
+# Example: Search for threats with tags "malware"
+print(get_search_threats_v2("malware"))
 
-date = input("What date would you like to add to the header? ")
-core["blocks"][0]["text"]["text"] = f"Your Header Text {date}"
+def get_threat_details_v2(threat_id):
+    """Get details of a specific threat."""
+    url = f"{BASE_URL}/threats/{threat_id}/"
+    response = requests.get(url, headers=HEADERS)
+    return response.json()
 
-# Print the modified JSON
-print(json.dumps(core, indent=2))
+# Example: Get details of threat with ID "789012"
+print(get_threat_details_v2("789012"))
+
+def get_search_reports_v2(tags):
+    """Search for reports based on tags."""
+    url = f"{BASE_URL}/reports/"
+    params = {"tags": tags}
+    response = requests.get(url, params=params, headers=HEADERS)
+    return response.json()
+
+# Example: Search for reports with tags "phishing"
+print(get_search_reports_v2("phishing"))
+
+def get_report_details_v2(report_id):
+    """Get details of a specific report."""
+    url = f"{BASE_URL}/reports/{report_id}/"
+    response = requests.get(url, headers=HEADERS)
+    return response.json()
+
+# Example: Get details of report with ID "345678"
+print(get_report_details_v2("345678"))
+
+def post_submit_indicator_v2(indicator, indicator_type, source):
+    """Submit a new indicator."""
+    url = f"{BASE_URL}/indicators/"
+    data = {"indicator": indicator, "type": indicator_type, "source": source}
+    response = requests.post(url, headers=HEADERS, json=data)
+    return response.json()
+
+# Example: Submit a new indicator
+print(post_submit_indicator_v2("1.2.3.4", "ip", "your_source"))
