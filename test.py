@@ -1,24 +1,18 @@
-def flatten_dict(d, parent_key=''):
-    flat_dict = {}
+def extract_keys(d, all_keys=[]):
     for key, value in d.items():
-        new_key = f"{parent_key}_{key}" if parent_key else key
-
+        all_keys.append(key)  # Add the current key to the list
         if isinstance(value, dict):
             # Recursive call to handle sub-dictionary
-            flat_dict.update(flatten_dict(value, new_key))
+            extract_keys(value, all_keys)
         elif isinstance(value, list):
-            # Handle list of dictionaries or other elements
-            for index, item in enumerate(value):
+            # Iterate over each item in the list if it's a dictionary
+            for item in value:
                 if isinstance(item, dict):
-                    flat_dict.update(flatten_dict(item, f"{new_key}_{index}"))
-                else:
-                    flat_dict[f"{new_key}_{index}"] = item
-        else:
-            flat_dict[new_key] = value
+                    extract_keys(item, all_keys)
 
-    return flat_dict
+    return all_keys
 
-# Example usage:
+# Example dictionary
 original_dict = {
     'object': {
         'subobject': [
@@ -35,6 +29,6 @@ original_dict = {
     'direct_key': 'direct_value'
 }
 
-# Flatten the dictionary
-flattened_dict = flatten_dict(original_dict)
-print(flattened_dict)
+# Extract all keys
+keys_list = extract_keys(original_dict)
+print(keys_list)
