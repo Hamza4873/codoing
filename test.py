@@ -1,26 +1,22 @@
-def rearrange_dict(d, parent_key=''):
-    # Function to recursively rearrange the dictionary
-    items = []
-    new_dict = {}
-
+def flatten_dict(d, parent_key=''):
+    flat_dict = {}
     for key, value in d.items():
         new_key = f"{parent_key}_{key}" if parent_key else key
 
         if isinstance(value, dict):
             # Recursive call to handle sub-dictionary
-            new_dict.update(rearrange_dict(value, new_key))
+            flat_dict.update(flatten_dict(value, new_key))
         elif isinstance(value, list):
-            # Process each item in the list if it's a dictionary
-            processed_list = [rearrange_dict(item, new_key) if isinstance(item, dict) else item for item in value]
-            new_dict[new_key] = processed_list
+            # Handle list of dictionaries or other elements
+            for index, item in enumerate(value):
+                if isinstance(item, dict):
+                    flat_dict.update(flatten_dict(item, f"{new_key}_{index}"))
+                else:
+                    flat_dict[f"{new_key}_{index}"] = item
         else:
-            # Collect items to be added later to ensure subdictionaries come first
-            items.append((new_key, value))
-    
-    # Add non-dictionary items at the end of the current scope
-    new_dict.update(items)
+            flat_dict[new_key] = value
 
-    return new_dict
+    return flat_dict
 
 # Example usage:
 original_dict = {
@@ -39,6 +35,6 @@ original_dict = {
     'direct_key': 'direct_value'
 }
 
-# Rearrange the dictionary
-rearranged_dict = rearrange_dict(original_dict)
-print(rearranged_dict)
+# Flatten the dictionary
+flattened_dict = flatten_dict(original_dict)
+print(flattened_dict)
