@@ -1,56 +1,47 @@
 import pandas as pd
-import json
+import numpy as np
 
-# Sample JSON data
-json_data = '''
-[
-    {
-        "Data": {"subdata": "stuff1"},
-        "Data2": "stuff",
-        "Data3": [{"subdata": "moreStuff1"}]
-    },
-    {
-        "Data": "stuff",
-        "Data2": {"subdata": "stuff2"},
-        "Data3": [{"subdata": "moreStuff2"}]
-    },
-    {
-        "Data": "stuff",
-        "Data2": "stuff"
-        // No Data3 in this dictionary
-    }
-]
-'''
+def create_flat_dataframe(data):
+    # Helper function to flatten the dictionary
+    def flatten_data(y):
+        out = {}
 
-def normalize_json_to_dataframe(data, keys):
-    data = json.loads(data)
+        def flatten(x, name=''):
+            if isinstance(x, dict):
+                for a in x:
+                    flatten(x[a], name + a + '_')
+            elif isinstance(x, list):
+                for i, a in enumerate(x):
+                    flatten(a, name + str(i) + '_')
+            else:
+                out[name[:-1]] = x
 
-    # Function to normalize data for a given key
-    def normalize_and_create(data, key):
-        temp_df = pd.json_normalize(data)
-        if key in temp_df.columns and isinstance(temp_df[key].dropna().iloc[0], (dict, list)):
-            # Extract subdata if it's structured
-            return pd.json_normalize(data, record_path=[key], errors='ignore').add_prefix(f"{key}_")
-        else:
-            # Directly extract as is or fill missing
-            return temp_df.get(key).apply(lambda x: {'subdata': x} if not isinstance(x, (dict, list)) else x).pipe(lambda df: pd.json_normalize(df).add_prefix(f"{key}_"))
+        flatten(y)
+        return out
 
-    data_frames = []
+    # Flattening each item in the data list and creating a list of dictionaries
+    my_list = [flatten_data(d) for d in data['data']]
 
-    for key in keys:
-        # Check if any item has the key, else create a placeholder column
-        if any(key in d for d in data):
-            sub_df = normalize_and_create(data, key)
-        else:
-            sub_df = pd.DataFrame({f"{key}_subdata": [pd.NA]*len(data)})  # Create a column filled with NA
+    # Creating DataFrame from the list of dictionaries
+    df = pd.DataFrame(my_list)
 
-        data_frames.append(sub_df)
+    # Ensuring all columns from the first item are present in the DataFrame
+    if my_list:
+        keylist = list(my_list[0].keys())
+        for key in keylist:
+            if key not in df.columns:
+                df[key] = np.nan
 
-    # Merge all DataFrames on their index
-    final_df = pd.concat(data_frames, axis=1)
-    return final_df
+    return df
 
-# Specify the keys as a variable
-keys = ['Data', 'Data2', 'Data3']
-df = normalize_json_to_dataframe(json_data, keys)
+# Example usage
+data = {
+    'data': [
+        {'key1': 'value1', 'key2': {'subkey1': 'subvalue1'}},
+        {'key1': 'value2', 'key3': ['listitem1', 'listitem2']}
+    ]
+}
+
+# Call the function with the example data
+df = create_flat_dataframe(data)
 print(df)
