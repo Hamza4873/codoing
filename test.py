@@ -3,10 +3,17 @@ import pandas as pd
 def flatten_dict(d, parent_key='', sep='.'):
     """
     Flatten a nested dictionary into a single level dictionary, concatenating keys.
+    Show only the last two levels of the hierarchy as breadcrumbs.
     """
     items = []
     for k, v in d.items():
-        new_key = f"{parent_key}{sep}{k}" if parent_key else k
+        # Extract the last two levels of keys
+        key_parts = (parent_key + sep + k).split(sep)
+        if len(key_parts) > 2:
+            new_key = sep.join(key_parts[-2:])  # Only keep the last two levels
+        else:
+            new_key = sep.join(key_parts)
+        
         if isinstance(v, dict):
             items.extend(flatten_dict(v, new_key, sep=sep).items())
         else:
@@ -22,7 +29,8 @@ def combine_dataframes(df1, df2):
 
 def parse_nested_fields(api_response):
     """
-    Recursively parses the given API response and returns a DataFrame based on the user's choice of fields, including nested fields.
+    Parses the given API response and returns a DataFrame based on the user's choice of fields, 
+    including nested fields with breadcrumbs limited to the last two levels.
     
     Parameters:
     - api_response: A dictionary or list of dictionaries representing the API response.
@@ -69,29 +77,13 @@ def parse_nested_fields(api_response):
 
     # Create a DataFrame with the selected fields
     df = pd.DataFrame(parsed_data)
-    
-    # Check if there are any nested objects for deeper dive
-    deeper_dive = input("\nWould you like to dive deeper into any nested fields? (yes/no): ").lower()
-    if deeper_dive == 'yes':
-        nested_fields = [field for field in selected_fields if any('.' in field for field in entry.keys())]
-        if nested_fields:
-            deeper_dataframes = []
-            for nested_field in nested_fields:
-                print(f"\nExploring deeper into: {nested_field}")
-                nested_entries = [entry.get(nested_field.split('.')[0]) for entry in flat_responses]
-                if any(isinstance(entry, dict) for entry in nested_entries):
-                    nested_df = parse_nested_fields(nested_entries)
-                    deeper_dataframes.append(nested_df)
-            
-            # Combine the deeper dive DataFrames with the original DataFrame
-            for deeper_df in deeper_dataframes:
-                df = combine_dataframes(df, deeper_df)
 
     return df
 
 def process_api_output(api_output):
     """
-    This function processes the API output and allows the user to parse fields, including nested fields, into a DataFrame.
+    This function processes the API output and allows the user to parse fields, 
+    including nested fields (limited to the last two levels), into a DataFrame.
 
     Parameters:
     - api_output: A dictionary or list of dictionaries from the API.
