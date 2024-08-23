@@ -2,22 +2,32 @@ import pandas as pd
 
 def flatten_dict(d, parent_key='', sep='.'):
     """
-    Flatten a nested dictionary into a single level dictionary, concatenating keys.
-    Show only the last two levels of the hierarchy as breadcrumbs.
+    Fully flatten a nested dictionary, ensuring that all nested levels are flattened.
+    Concatenates keys using the separator `sep`.
+    Limits the breadcrumbs to show only the last two levels.
+    
+    Parameters:
+    - d: The dictionary to flatten.
+    - parent_key: The base key used for recursion (used internally).
+    - sep: The separator used for concatenating keys.
+    
+    Returns:
+    - A fully flattened dictionary with keys showing only the last two levels.
     """
     items = []
     for k, v in d.items():
-        # Extract the last two levels of keys
+        # Limit breadcrumbs to last two levels
         key_parts = (parent_key + sep + k).split(sep)
         if len(key_parts) > 2:
-            new_key = sep.join(key_parts[-2:])  # Only keep the last two levels
+            new_key = sep.join(key_parts[-2:])
         else:
             new_key = sep.join(key_parts)
         
         if isinstance(v, dict):
+            # Recursively flatten nested dictionaries
             items.extend(flatten_dict(v, new_key, sep=sep).items())
         else:
-            items.append((new_key, v))
+            items.append((new_key, v))  # Add flattened key-value pair
     return dict(items)
 
 def combine_dataframes(df1, df2):
@@ -116,7 +126,13 @@ if __name__ == "__main__":
                     "total": 60,
                     "detected": 20
                 },
-                "size": 1024
+                "size": 1024,
+                "sub_metadata": {
+                    "extra_info": "some info",
+                    "details": {
+                        "level": 5
+                    }
+                }
             }
         },
         {
