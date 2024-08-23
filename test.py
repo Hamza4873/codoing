@@ -1,8 +1,10 @@
 import pandas as pd
+import json
 
 def flatten_dict(d, parent_key='', sep='.'):
     """
     Fully flatten a nested dictionary, ensuring that all nested levels are flattened.
+    Handles lists and JSON strings by recursively flattening them as well.
     Concatenates keys using the separator `sep` and includes all breadcrumb levels.
     
     Parameters:
@@ -14,28 +16,45 @@ def flatten_dict(d, parent_key='', sep='.'):
     - A fully flattened dictionary with keys showing all levels of breadcrumbs.
     """
     items = []
+    
     for k, v in d.items():
-        # Keep all levels of breadcrumbs in the key
         new_key = f"{parent_key}{sep}{k}" if parent_key else k
         
+        # Handle if value is a nested dictionary
         if isinstance(v, dict):
-            # Recursively flatten nested dictionaries
             items.extend(flatten_dict(v, new_key, sep=sep).items())
+        
+        # Handle if value is a list
+        elif isinstance(v, list):
+            for i, item in enumerate(v):
+                if isinstance(item, dict):
+                    # Flatten dictionaries inside lists
+                    items.extend(flatten_dict(item, f"{new_key}[{i}]", sep=sep).items())
+                else:
+                    items.append((f"{new_key}[{i}]", item))
+        
+        # Handle if value is a JSON string (convert to dict if possible)
+        elif isinstance(v, str):
+            try:
+                # Attempt to load the string as JSON and flatten if it's valid
+                json_obj = json.loads(v)
+                if isinstance(json_obj, dict):
+                    items.extend(flatten_dict(json_obj, new_key, sep=sep).items())
+                else:
+                    items.append((new_key, v))
+            except (json.JSONDecodeError, TypeError):
+                # If it's not a valid JSON string, just append the value
+                items.append((new_key, v))
+        
         else:
-            items.append((new_key, v))  # Add flattened key-value pair
+            items.append((new_key, v))
+    
     return dict(items)
-
-def combine_dataframes(df1, df2):
-    """
-    Combine two DataFrames by aligning on their indexes. This is useful if we want to 
-    add nested fields to the original DataFrame.
-    """
-    return pd.concat([df1, df2], axis=1)
 
 def parse_nested_fields(api_response):
     """
     Parses the given API response and returns a DataFrame based on the user's choice of fields, 
-    including all breadcrumb levels for nested fields.
+    including fully flattened fields with all breadcrumb levels.
     
     Parameters:
     - api_response: A dictionary or list of dictionaries representing the API response.
@@ -43,7 +62,6 @@ def parse_nested_fields(api_response):
     Returns:
     - A pandas DataFrame containing the selected fields.
     """
-    # Flatten the API response if it's nested
     if isinstance(api_response, dict):
         api_response = [api_response]
     
@@ -57,7 +75,7 @@ def parse_nested_fields(api_response):
     
     # Display the available fields to the user
     print("\nAvailable fields:")
-    all_fields = list(all_fields)  # Convert set to list for indexing
+    all_fields = list(all_fields)
     for idx, field in enumerate(all_fields):
         print(f"{idx + 1}. {field}")
 
@@ -70,7 +88,7 @@ def parse_nested_fields(api_response):
             break
         except (IndexError, ValueError):
             print("Invalid input. Please enter the numbers corresponding to the fields.")
-
+    
     # Confirm selected fields with the user
     print(f"\nYou have selected the following fields: {', '.join(selected_fields)}")
 
@@ -82,13 +100,12 @@ def parse_nested_fields(api_response):
 
     # Create a DataFrame with the selected fields
     df = pd.DataFrame(parsed_data)
-
     return df
 
 def process_api_output(api_output):
     """
     This function processes the API output and allows the user to parse fields, 
-    including all breadcrumb levels, into a DataFrame.
+    including nested fields, into a DataFrame.
 
     Parameters:
     - api_output: A dictionary or list of dictionaries from the API.
@@ -96,7 +113,6 @@ def process_api_output(api_output):
     Returns:
     - None: Prints the DataFrame.
     """
-    # Check if the output is valid
     if not isinstance(api_output, (list, dict)):
         print("Invalid API output format. It must be a list or dictionary.")
         return
@@ -110,24 +126,18 @@ def process_api_output(api_output):
 
 # Example usage with simulated API output containing nested objects
 if __name__ == "__main__":
-    # Simulate some API output with nested objects
+    # Simulated API output containing nested objects and lists
     example_api_output = [
         {
             "file_hash": "123abc", 
             "detection_ratio": "20/60", 
             "scan_date": "2024-01-01",
             "metadata": {
-                "scanners": {
-                    "total": 60,
-                    "detected": 20
-                },
-                "size": 1024,
-                "sub_metadata": {
-                    "extra_info": "some info",
-                    "details": {
-                        "level": 5
-                    }
-                }
+                "scanners": [
+                    {"name": "scanner1", "status": "clean"},
+                    {"name": "scanner2", "status": "infected"}
+                ],
+                "size": 1024
             }
         },
         {
@@ -135,10 +145,10 @@ if __name__ == "__main__":
             "detection_ratio": "5/60", 
             "scan_date": "2024-01-02",
             "metadata": {
-                "scanners": {
-                    "total": 60,
-                    "detected": 5
-                },
+                "scanners": [
+                    {"name": "scanner1", "status": "clean"},
+                    {"name": "scanner2", "status": "infected"}
+                ],
                 "size": 2048
             }
         }
