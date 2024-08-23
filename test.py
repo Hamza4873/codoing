@@ -3,8 +3,7 @@ import pandas as pd
 def flatten_dict(d, parent_key='', sep='.'):
     """
     Fully flatten a nested dictionary, ensuring that all nested levels are flattened.
-    Concatenates keys using the separator `sep`.
-    Limits the breadcrumbs to show only the last two levels.
+    Concatenates keys using the separator `sep` and includes all breadcrumb levels.
     
     Parameters:
     - d: The dictionary to flatten.
@@ -12,16 +11,12 @@ def flatten_dict(d, parent_key='', sep='.'):
     - sep: The separator used for concatenating keys.
     
     Returns:
-    - A fully flattened dictionary with keys showing only the last two levels.
+    - A fully flattened dictionary with keys showing all levels of breadcrumbs.
     """
     items = []
     for k, v in d.items():
-        # Limit breadcrumbs to last two levels
-        key_parts = (parent_key + sep + k).split(sep)
-        if len(key_parts) > 2:
-            new_key = sep.join(key_parts[-2:])
-        else:
-            new_key = sep.join(key_parts)
+        # Keep all levels of breadcrumbs in the key
+        new_key = f"{parent_key}{sep}{k}" if parent_key else k
         
         if isinstance(v, dict):
             # Recursively flatten nested dictionaries
@@ -40,7 +35,7 @@ def combine_dataframes(df1, df2):
 def parse_nested_fields(api_response):
     """
     Parses the given API response and returns a DataFrame based on the user's choice of fields, 
-    including nested fields with breadcrumbs limited to the last two levels.
+    including all breadcrumb levels for nested fields.
     
     Parameters:
     - api_response: A dictionary or list of dictionaries representing the API response.
@@ -93,7 +88,7 @@ def parse_nested_fields(api_response):
 def process_api_output(api_output):
     """
     This function processes the API output and allows the user to parse fields, 
-    including nested fields (limited to the last two levels), into a DataFrame.
+    including all breadcrumb levels, into a DataFrame.
 
     Parameters:
     - api_output: A dictionary or list of dictionaries from the API.
