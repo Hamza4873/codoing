@@ -1,162 +1,65 @@
 import pandas as pd
 import json
 
-def flatten_dict(d, parent_key='', sep='.'):
-    """
-    Fully flatten a nested dictionary, ensuring that all nested levels are flattened.
-    Handles lists, nested dictionaries, and JSON strings by recursively flattening them as well.
-    Concatenates keys using the separator `sep` and includes all breadcrumb levels.
-    
-    Parameters:
-    - d: The dictionary to flatten.
-    - parent_key: The base key used for recursion (used internally).
-    - sep: The separator used for concatenating keys.
-    
-    Returns:
-    - A fully flattened dictionary with keys showing all levels of breadcrumbs.
-    """
-    items = []
-    
-    # Iterate through the dictionary's key-value pairs
-    for k, v in d.items():
-        new_key = f"{parent_key}{sep}{k}" if parent_key else k
-        
-        # Handle nested dictionaries
-        if isinstance(v, dict):
-            items.extend(flatten_dict(v, new_key, sep=sep).items())
-        
-        # Handle lists
-        elif isinstance(v, list):
-            for i, item in enumerate(v):
-                if isinstance(item, dict):
-                    # If list contains dictionaries, flatten them
-                    items.extend(flatten_dict(item, f"{new_key}[{i}]", sep=sep).items())
-                else:
-                    # If list contains non-dict items, keep them as is
-                    items.append((f"{new_key}[{i}]", item))
-        
-        # Handle JSON strings (convert to dict if possible)
-        elif isinstance(v, str):
-            try:
-                # Attempt to load the string as JSON and flatten if it's valid
-                json_obj = json.loads(v)
-                if isinstance(json_obj, dict):
-                    items.extend(flatten_dict(json_obj, new_key, sep=sep).items())
-                else:
-                    items.append((new_key, v))
-            except (json.JSONDecodeError, TypeError):
-                # If it's not a valid JSON string, just append the value as is
-                items.append((new_key, v))
-        
-        # Handle all other types (int, float, str, etc.)
+# Function to flatten nested dictionaries
+def flatten_json(y):
+    out = {}
+
+    def flatten(x, name=''):
+        if type(x) is dict:
+            for a in x:
+                flatten(x[a], name + a + '_')
+        elif type(x) is list:
+            i = 0
+            for a in x:
+                flatten(a, name + str(i) + '_')
+                i += 1
         else:
-            items.append((new_key, v))
-    
-    return dict(items)
+            out[name[:-1]] = x
 
-def parse_nested_fields(api_response):
-    """
-    Parses the given API response and returns a DataFrame based on the user's choice of fields, 
-    including fully flattened fields with all breadcrumb levels.
-    
-    Parameters:
-    - api_response: A dictionary or list of dictionaries representing the API response.
+    flatten(y)
+    return out
 
-    Returns:
-    - A pandas DataFrame containing the selected fields.
-    """
-    if isinstance(api_response, dict):
-        api_response = [api_response]
-    
-    # Flatten each entry in the response to handle nested objects
-    flat_responses = [flatten_dict(entry) for entry in api_response]
-    
-    # Get all possible fields (keys) from the flattened response
-    all_fields = set()
-    for entry in flat_responses:
-        all_fields.update(entry.keys())
-    
-    # Display the available fields to the user
-    print("\nAvailable fields:")
-    all_fields = list(all_fields)
-    for idx, field in enumerate(all_fields):
-        print(f"{idx + 1}. {field}")
+# Function to parse API output into a DataFrame
+def parse_api_output(api_output):
+    try:
+        data = json.loads(api_output)
+    except json.JSONDecodeError:
+        raise ValueError("Invalid JSON format provided.")
 
-    # Ask the user which fields they want to include in the DataFrame
-    while True:
-        try:
-            selected_indices = input("\nEnter the numbers of the fields you want to include, separated by commas: ")
-            selected_indices = [int(i.strip()) for i in selected_indices.split(',')]
-            selected_fields = [all_fields[i - 1] for i in selected_indices]
-            break
-        except (IndexError, ValueError):
-            print("Invalid input. Please enter the numbers corresponding to the fields.")
-    
-    # Confirm selected fields with the user
-    print(f"\nYou have selected the following fields: {', '.join(selected_fields)}")
+    # If it's a list of dictionaries, we flatten each dictionary
+    if isinstance(data, list):
+        flat_data = [flatten_json(item) for item in data]
+    # If it's a single dictionary, we just flatten it
+    elif isinstance(data, dict):
+        flat_data = [flatten_json(data)]
+    else:
+        raise ValueError("API output must be a JSON object or list of JSON objects.")
 
-    # Extract the selected fields from the API response
-    parsed_data = []
-    for entry in flat_responses:
-        parsed_entry = {field: entry.get(field, None) for field in selected_fields}
-        parsed_data.append(parsed_entry)
-
-    # Create a DataFrame with the selected fields
-    df = pd.DataFrame(parsed_data)
+    df = pd.DataFrame(flat_data)
     return df
 
-def process_api_output(api_output):
-    """
-    This function processes the API output and allows the user to parse fields, 
-    including nested fields, into a DataFrame.
+# Function to create Databricks multiselect widget
+def create_multiselect_widget(df):
+    columns = df.columns.tolist()
+    dbutils.widgets.multiselect("selected_columns", "", columns, "Select Columns")
 
-    Parameters:
-    - api_output: A dictionary or list of dictionaries from the API.
+# Function to display selected columns in a DataFrame
+def display_selected_columns(df):
+    selected_columns = dbutils.widgets.get("selected_columns").split(',')
+    if selected_columns:
+        filtered_df = df[selected_columns]
+        display(filtered_df)
+    else:
+        print("No columns selected.")
 
-    Returns:
-    - None: Prints the DataFrame.
-    """
-    if not isinstance(api_output, (list, dict)):
-        print("Invalid API output format. It must be a list or dictionary.")
-        return
-    
-    # Parse fields and create a DataFrame
-    df = parse_nested_fields(api_output)
-    
-    # Display the resulting DataFrame
-    print("\nFinal Parsed DataFrame:")
-    print(df)
+# Example usage
+api_output = input("Paste your API output data in JSON format (can be a list or a single JSON object): ")
 
-# Example usage with simulated API output containing nested objects
-if __name__ == "__main__":
-    # Simulated API output containing nested objects and lists
-    example_api_output = [
-        {
-            "file_hash": "123abc", 
-            "detection_ratio": "20/60", 
-            "scan_date": "2024-01-01",
-            "metadata": {
-                "scanners": [
-                    {"name": "scanner1", "status": "clean"},
-                    {"name": "scanner2", "status": "infected"}
-                ],
-                "size": 1024
-            },
-            "more_info": "{\"key\": \"value\", \"nested_key\": {\"deep_key\": 123}}"
-        },
-        {
-            "file_hash": "456def", 
-            "detection_ratio": "5/60", 
-            "scan_date": "2024-01-02",
-            "metadata": {
-                "scanners": [
-                    {"name": "scanner1", "status": "clean"},
-                    {"name": "scanner2", "status": "infected"}
-                ],
-                "size": 2048
-            }
-        }
-    ]
-    
-    # Process the simulated API output
-    process_api_output(example_api_output)
+df = parse_api_output(api_output)
+
+# Create the widget to select columns
+create_multiselect_widget(df)
+
+# After selecting columns, execute this to show the selected data
+display_selected_columns(df)
