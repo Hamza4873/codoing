@@ -22,19 +22,14 @@ def flatten_json(y):
 
 # Function to parse API output into a DataFrame
 def parse_api_output(api_output):
-    try:
-        data = json.loads(api_output)
-    except json.JSONDecodeError:
-        raise ValueError("Invalid JSON format provided.")
-
-    # If it's a list of dictionaries, we flatten each dictionary
-    if isinstance(data, list):
-        flat_data = [flatten_json(item) for item in data]
-    # If it's a single dictionary, we just flatten it
-    elif isinstance(data, dict):
-        flat_data = [flatten_json(data)]
+    # If it's a list of dictionaries, flatten each dictionary
+    if isinstance(api_output, list):
+        flat_data = [flatten_json(item) for item in api_output]
+    # If it's a single dictionary, flatten it
+    elif isinstance(api_output, dict):
+        flat_data = [flatten_json(api_output)]
     else:
-        raise ValueError("API output must be a JSON object or list of JSON objects.")
+        raise ValueError("API output must be a list or a dictionary.")
 
     df = pd.DataFrame(flat_data)
     return df
@@ -53,9 +48,13 @@ def display_selected_columns(df):
     else:
         print("No columns selected.")
 
-# Example usage
-api_output = input("Paste your API output data in JSON format (can be a list or a single JSON object): ")
+# Example API response (replace this with your actual data)
+api_output = [
+    {"id": 1, "name": "John", "info": {"age": 30, "city": "New York"}},
+    {"id": 2, "name": "Jane", "info": {"age": 25, "city": "Los Angeles"}}
+]
 
+# Parse the API output into a DataFrame
 df = parse_api_output(api_output)
 
 # Create the widget to select columns
