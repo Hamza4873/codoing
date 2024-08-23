@@ -4,7 +4,7 @@ import json
 def flatten_dict(d, parent_key='', sep='.'):
     """
     Fully flatten a nested dictionary, ensuring that all nested levels are flattened.
-    Handles lists and JSON strings by recursively flattening them as well.
+    Handles lists, nested dictionaries, and JSON strings by recursively flattening them as well.
     Concatenates keys using the separator `sep` and includes all breadcrumb levels.
     
     Parameters:
@@ -17,23 +17,25 @@ def flatten_dict(d, parent_key='', sep='.'):
     """
     items = []
     
+    # Iterate through the dictionary's key-value pairs
     for k, v in d.items():
         new_key = f"{parent_key}{sep}{k}" if parent_key else k
         
-        # Handle if value is a nested dictionary
+        # Handle nested dictionaries
         if isinstance(v, dict):
             items.extend(flatten_dict(v, new_key, sep=sep).items())
         
-        # Handle if value is a list
+        # Handle lists
         elif isinstance(v, list):
             for i, item in enumerate(v):
                 if isinstance(item, dict):
-                    # Flatten dictionaries inside lists
+                    # If list contains dictionaries, flatten them
                     items.extend(flatten_dict(item, f"{new_key}[{i}]", sep=sep).items())
                 else:
+                    # If list contains non-dict items, keep them as is
                     items.append((f"{new_key}[{i}]", item))
         
-        # Handle if value is a JSON string (convert to dict if possible)
+        # Handle JSON strings (convert to dict if possible)
         elif isinstance(v, str):
             try:
                 # Attempt to load the string as JSON and flatten if it's valid
@@ -43,9 +45,10 @@ def flatten_dict(d, parent_key='', sep='.'):
                 else:
                     items.append((new_key, v))
             except (json.JSONDecodeError, TypeError):
-                # If it's not a valid JSON string, just append the value
+                # If it's not a valid JSON string, just append the value as is
                 items.append((new_key, v))
         
+        # Handle all other types (int, float, str, etc.)
         else:
             items.append((new_key, v))
     
@@ -138,7 +141,8 @@ if __name__ == "__main__":
                     {"name": "scanner2", "status": "infected"}
                 ],
                 "size": 1024
-            }
+            },
+            "more_info": "{\"key\": \"value\", \"nested_key\": {\"deep_key\": 123}}"
         },
         {
             "file_hash": "456def", 
