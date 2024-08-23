@@ -42,11 +42,13 @@ def create_multiselect_widget(df):
 # Function to display selected columns in a DataFrame
 def display_selected_columns(df):
     selected_columns = dbutils.widgets.get("selected_columns").split(',')
-    if selected_columns:
-        filtered_df = df[selected_columns]
-        display(filtered_df)
-    else:
-        print("No columns selected.")
+    
+    # Check if any columns are selected, and if not, select all columns by default
+    if selected_columns == ['']:
+        selected_columns = df.columns.tolist()
+        
+    filtered_df = df[selected_columns]
+    display(filtered_df)
 
 # Example API response (replace this with your actual data)
 api_output = [
