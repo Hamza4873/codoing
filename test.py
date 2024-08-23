@@ -42,7 +42,6 @@ def process_files(workspace_dir, local_dir):
         local_file_path = os.path.join(local_dir, os.path.basename(workspace_file_path))
 
         if file_type == "DIRECTORY":
-            print(f"Processing directory: {workspace_file_path}")
             process_files(workspace_file_path, local_file_path)
         elif file_type == "NOTEBOOK":
             if workspace_file_path.endswith(".ipynb"):
@@ -51,10 +50,8 @@ def process_files(workspace_dir, local_dir):
                 export_file_from_databricks(workspace_file_path, local_file_path + ".py", "SOURCE")
             elif workspace_file_path.endswith(".yaml") or workspace_file_path.endswith(".yml"):
                 export_file_from_databricks(workspace_file_path, local_file_path + ".yaml", "SOURCE")
-            else:
-                print(f"Skipping non-Python, non-Jupyter, and non-YAML file: {workspace_file_path}")
         else:
-            print(f"Skipping unknown file type: {workspace_file_path}")
+            print(f"Skipping non-notebook and non-Python file: {workspace_file_path}")
 
 if __name__ == "__main__":
     workspace_directory = "/Workspace/Users/your-email"
