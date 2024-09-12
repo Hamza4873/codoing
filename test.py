@@ -1,22 +1,25 @@
-from pyspark.sql.functions import regexp_extract, col, when, current_timestamp, unix_timestamp
+from pyspark.sql import functions as F
+from pyspark.sql import SparkSession
+from datetime import datetime, timedelta
 
-# Define the regular expressions to extract threatId and threatType
-threatId_pattern = '"threatId":"([A-Za-z0-9]+)"'
-threatType_pattern = '"threatType":"([A-Za-z0-9]+)"'
+# Initialize Spark session
+spark = SparkSession.builder.getOrCreate()
 
-# Extract the threatId and threatType using regex
-df_with_threats = df.withColumn("threatId", regexp_extract(col("event_details"), threatId_pattern, 1)) \
-                    .withColumn("threatType", regexp_extract(col("event_details"), threatType_pattern, 1))
+# Example DataFrame with a timestamp column
+data = [
+    ("2024-09-11 10:00:00",),
+    ("2024-09-12 08:00:00",),
+    ("2024-09-12 14:00:00",),
+    ("2024-09-10 15:00:00",),
+]
+df = spark.createDataFrame(data, ["timestamp"]).withColumn("timestamp", F.col("timestamp").cast("timestamp"))
 
-# Filter rows where threatType is "url" and the timestamp is less than a day old
-df_filtered = df_with_threats.withColumn("threatId", when(
-    (col("threatType") == "url") & 
-    (unix_timestamp(current_timestamp()) - unix_timestamp(col("timestamp")) <= 86400),  # 86400 seconds = 1 day
-    col("threatId")
-))
+# Get the current timestamp and 24 hours before
+current_time = datetime.now()
+start_time = current_time - timedelta(hours=24)
 
-# Filter out rows where threatId is null
-df_filtered = df_filtered.filter(col("threatId").isNotNull())
+# Directly using .filter to filter the DataFrame
+filtered_df = df.filter((F.col("timestamp") >= F.lit(start_time)) & (F.col("timestamp") <= F.lit(current_time)))
 
-# Show only the threatId
-df_filtered.select("threatId").show()
+# Show the filtered DataFrame
+filtered_df.show(truncate=False)
