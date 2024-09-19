@@ -1,24 +1,30 @@
 import certstream
-import threading
+import pandas as pd
 import time
 
-def certstream_callback(message, _):
-    print(f"Received message: {message}")
+# Initialize a list to store the JSON messages
+data_list = []
 
-def stop_stream_after(duration, thread):
-    time.sleep(duration)
-    print(f"Stopping the stream after {duration} seconds.")
-    # Stop the thread gracefully
-    if thread.is_alive():
-        # Raise a SystemExit in the thread to stop it
-        print("Terminating the stream...")
-        raise SystemExit
+# Record the start time
+start_time = time.time()
 
-# Start the CertStream listener in a separate thread
-certstream_thread = threading.Thread(target=certstream.listen_for_events, args=(certstream_callback, 'wss://certstream.calidog.io/'))
-certstream_thread.start()
+def certstream_callback(message, context):
+    # Stop listening after 1 second
+    if time.time() - start_time > 1:
+        raise KeyboardInterrupt  # This will exit the listener
 
-# Set a timer to stop the stream after 10 seconds
-duration = 10  # Stop after 10 seconds
-stop_timer = threading.Thread(target=stop_stream_after, args=(duration, certstream_thread))
-stop_timer.start()
+    # Append the entire JSON message to the data list
+    data_list.append(message)
+
+try:
+    # Start listening to CertStream events
+    certstream.listen_for_events(certstream_callback, url='wss://certstream.calidog.io/')
+except KeyboardInterrupt:
+    # Gracefully exit the listener after 1 second
+    pass
+
+# Normalize the list of JSON messages into a flat table
+df = pd.json_normalize(data_list)
+
+# Display the DataFrame
+print(df)
