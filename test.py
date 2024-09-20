@@ -1,30 +1,74 @@
-import certstream
+from pyspark.sql import SparkSession
+from pyspark.sql.types import (
+    StructType, StructField,
+    StringType, IntegerType, FloatType, DoubleType,
+    BooleanType, DateType, TimestampType, LongType, ShortType,
+    ArrayType, MapType, NullType
+)
 import pandas as pd
-import time
+import numpy as np
 
-# Initialize a list to store the JSON messages
-data_list = []
-
-# Record the start time
-start_time = time.time()
-
-def certstream_callback(message, context):
-    # Stop listening after 1 second
-    if time.time() - start_time > 1:
-        raise KeyboardInterrupt  # This will exit the listener
-
-    # Append the entire JSON message to the data list
-    data_list.append(message)
-
-try:
-    # Start listening to CertStream events
-    certstream.listen_for_events(certstream_callback, url='wss://certstream.calidog.io/')
-except KeyboardInterrupt:
-    # Gracefully exit the listener after 1 second
-    pass
-
-# Normalize the list of JSON messages into a flat table
-df = pd.json_normalize(data_list)
-
-# Display the DataFrame
-print(df)
+def pandas_to_spark(spark, pandas_df):
+    """
+    Converts a pandas DataFrame to a PySpark DataFrame, handling data type
+    inference and merging issues.
+    
+    Parameters:
+    - spark: An active SparkSession.
+    - pandas_df: The pandas DataFrame to convert.
+    
+    Returns:
+    - A PySpark DataFrame.
+    """
+    # Map pandas dtypes to PySpark types
+    dtype_map = {
+        'int64': LongType(),
+        'int32': IntegerType(),
+        'int16': ShortType(),
+        'float64': DoubleType(),
+        'float32': FloatType(),
+        'bool': BooleanType(),
+        'datetime64[ns]': TimestampType(),
+        'object': StringType(),
+        'category': StringType(),
+    }
+    
+    def get_struct_type(pdf):
+        fields = []
+        for column_name, dtype in pdf.dtypes.items():
+            if str(dtype) in dtype_map:
+                data_type = dtype_map[str(dtype)]
+            elif pd.api.types.is_datetime64_any_dtype(dtype):
+                data_type = TimestampType()
+            elif pd.api.types.is_bool_dtype(dtype):
+                data_type = BooleanType()
+            elif pd.api.types.is_integer_dtype(dtype):
+                data_type = LongType()
+            elif pd.api.types.is_float_dtype(dtype):
+                data_type = DoubleType()
+            elif pd.api.types.is_categorical_dtype(dtype):
+                data_type = StringType()
+            elif pd.api.types.is_string_dtype(dtype):
+                data_type = StringType()
+            elif pd.api.types.is_object_dtype(dtype):
+                sample_value = pdf[column_name].dropna().iloc[0] if not pdf[column_name].dropna().empty else None
+                if isinstance(sample_value, list):
+                    data_type = ArrayType(StringType())
+                elif isinstance(sample_value, dict):
+                    data_type = MapType(StringType(), StringType())
+                else:
+                    data_type = StringType()
+            else:
+                data_type = StringType()  # Default to StringType if unknown
+            fields.append(StructField(column_name, data_type, True))
+        return StructType(fields)
+    
+    # Handle empty DataFrame
+    if pandas_df.empty:
+        schema = get_struct_type(pandas_df)
+        spark_df = spark.createDataFrame([], schema)
+    else:
+        schema = get_struct_type(pandas_df)
+        spark_df = spark.createDataFrame(pandas_df, schema=schema)
+    
+    return spark_df
