@@ -1,25 +1,30 @@
-from pyspark.sql import SparkSession
 from pyspark.sql.types import (
     StructType, StructField,
     StringType, IntegerType, FloatType, DoubleType,
     BooleanType, DateType, TimestampType, LongType, ShortType,
-    ArrayType, MapType, NullType
+    ArrayType, MapType
 )
 import pandas as pd
 import numpy as np
 
-def pandas_to_spark(spark, pandas_df):
+def pandas_to_spark(pandas_df):
     """
     Converts a pandas DataFrame to a PySpark DataFrame, handling data type
     inference and merging issues.
-    
+
     Parameters:
-    - spark: An active SparkSession.
     - pandas_df: The pandas DataFrame to convert.
-    
+
     Returns:
     - A PySpark DataFrame.
     """
+    from pyspark.sql import SparkSession
+
+    # Get the active SparkSession
+    spark = SparkSession.getActiveSession()
+    if spark is None:
+        raise RuntimeError("No active SparkSession found. Please initialize a SparkSession before calling this function.")
+
     # Map pandas dtypes to PySpark types
     dtype_map = {
         'int64': LongType(),
@@ -32,7 +37,7 @@ def pandas_to_spark(spark, pandas_df):
         'object': StringType(),
         'category': StringType(),
     }
-    
+
     def get_struct_type(pdf):
         fields = []
         for column_name, dtype in pdf.dtypes.items():
@@ -62,7 +67,7 @@ def pandas_to_spark(spark, pandas_df):
                 data_type = StringType()  # Default to StringType if unknown
             fields.append(StructField(column_name, data_type, True))
         return StructType(fields)
-    
+
     # Handle empty DataFrame
     if pandas_df.empty:
         schema = get_struct_type(pandas_df)
@@ -70,5 +75,5 @@ def pandas_to_spark(spark, pandas_df):
     else:
         schema = get_struct_type(pandas_df)
         spark_df = spark.createDataFrame(pandas_df, schema=schema)
-    
+
     return spark_df
